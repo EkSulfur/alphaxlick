@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "arXiv to AlphaXiv",
+  "name": "alphaxlick",
   "version": "1.0.0",
   "description": "Detect arXiv abstract pages and jump to the corresponding AlphaXiv page.",
   "action": {
