@@ -1,118 +1,52 @@
 // Content script for arXiv pages.
-// It injects a floating button on supported arXiv pages so the user can
-// jump to the matching AlphaXiv page with one click.
+// Injects a floating button that opens the matching AlphaXiv page on the
+// abstract, PDF and HTML views. The button can be dragged, and the dragged
+// position is saved as the new default by common.js.
 
-function isSupportedArxivPage(url) {
-  return /^https?:\/\/arxiv\.org\/(abs|pdf)\/[^/?#]+/.test(url);
-}
-
-function toAlphaXivUrl(arxivUrl) {
-  return arxivUrl.replace(/^https?:\/\/arxiv\.org/, "https://alphaxiv.org");
-}
-
-function createJumpButton(targetUrl) {
-  if (document.getElementById("arxiv-to-alphaxiv-button")) {
+(() => {
+  const lib = window.__alphaxlick;
+  if (!lib) {
     return;
   }
 
-  let isDragging = false;
-  let didDrag = false;
-  let dragOffsetX = 0;
-  let dragOffsetY = 0;
-  let pointerStartX = 0;
-  let pointerStartY = 0;
-  const dragThreshold = 6;
+  const BUTTON_ID = "arxiv-to-alphaxiv-button";
 
-  const button = document.createElement("button");
-  button.id = "arxiv-to-alphaxiv-button";
-  button.textContent = "Open in AlphaXiv";
-  button.type = "button";
+  // Matches new style ids (2401.12345v2) and old style ids (hep-th/9901001v1),
+  // and ignores any extra path segments or anchors that follow them.
+  const ARXIV_ID = "(?:\\d{4}\\.\\d{4,5}|[a-z][a-z-]*(?:\\.[a-z]{2})?\\/\\d{7})(?:v\\d+)?";
+  const PAPER_PAGE = new RegExp(`^https?://arxiv\\.org/(abs|pdf|html)/(${ARXIV_ID})`, "i");
 
-  // Keep the button visible but unobtrusive.
-  Object.assign(button.style, {
-    position: "fixed",
-    top: "16px",
-    right: "16px",
-    zIndex: "2147483647",
-    padding: "10px 14px",
-    border: "none",
-    borderRadius: "999px",
-    background: "#1f6feb",
-    color: "#ffffff",
-    fontSize: "14px",
-    fontFamily: "Arial, sans-serif",
-    fontWeight: "600",
-    cursor: "pointer",
-    boxShadow: "0 6px 18px rgba(0, 0, 0, 0.25)"
-  });
-
-  const startDrag = (clientX, clientY) => {
-    const rect = button.getBoundingClientRect();
-    isDragging = true;
-    didDrag = false;
-    pointerStartX = clientX;
-    pointerStartY = clientY;
-    dragOffsetX = clientX - rect.left;
-    dragOffsetY = clientY - rect.top;
-    button.style.transition = "none";
+  // The arXiv HTML view has no matching AlphaXiv HTML view, so it maps to the
+  // AlphaXiv abstract page (abs / pdf keep their own view).
+  const ALPHAXIV_VIEW_FOR_ARXIV_VIEW = {
+    abs: "abs",
+    pdf: "pdf",
+    html: "abs"
   };
 
-  const updatePosition = (clientX, clientY) => {
-    const nextLeft = Math.max(0, clientX - dragOffsetX);
-    const nextTop = Math.max(0, clientY - dragOffsetY);
-    button.style.left = `${nextLeft}px`;
-    button.style.top = `${nextTop}px`;
-    button.style.right = "auto";
-    button.style.bottom = "auto";
-  };
+  function isSupportedArxivPage(url) {
+    return PAPER_PAGE.test(url);
+  }
 
-  const stopDrag = () => {
-    isDragging = false;
-    button.style.transition = "";
-  };
-
-  button.addEventListener("pointerdown", (event) => {
-    startDrag(event.clientX, event.clientY);
-    button.setPointerCapture(event.pointerId);
-    event.preventDefault();
-  });
-
-  button.addEventListener("pointermove", (event) => {
-    if (!isDragging) {
-      return;
+  function toAlphaXivUrl(arxivUrl) {
+    const match = arxivUrl.match(PAPER_PAGE);
+    if (!match) {
+      return null;
     }
-    const movedDistance = Math.max(
-      Math.abs(event.clientX - pointerStartX),
-      Math.abs(event.clientY - pointerStartY)
-    );
-    if (movedDistance >= dragThreshold) {
-      didDrag = true;
-    }
-    updatePosition(event.clientX, event.clientY);
+    const view = ALPHAXIV_VIEW_FOR_ARXIV_VIEW[match[1].toLowerCase()] || "abs";
+    return `https://alphaxiv.org/${view}/${match[2]}`;
+  }
+
+  lib.setupFloatingButton({
+    id: BUTTON_ID,
+    text: "Open in AlphaXiv",
+    title: "Open this paper on AlphaXiv",
+    accent: "#1f6feb",
+    showKey: lib.STORAGE_KEYS.showArxivButton,
+    positionKey: lib.STORAGE_KEYS.arxivButtonPosition,
+    shouldDisplay: () => isSupportedArxivPage(window.location.href),
+    // The URL is used as the anchor's href, so the browser can open it in a
+    // new tab/window via the context menu, middle-click or Ctrl/Cmd+click.
+    getHref: () => toAlphaXivUrl(window.location.href)
   });
-
-  button.addEventListener("pointerup", () => {
-    stopDrag();
-  });
-
-  button.addEventListener("pointercancel", () => {
-    stopDrag();
-  });
-
-  button.addEventListener("click", (event) => {
-    if (didDrag) {
-      event.preventDefault();
-      event.stopPropagation();
-      didDrag = false;
-      return;
-    }
-    // Use a normal navigation so the current arXiv page stays in browser history.
-    window.location.assign(targetUrl);
-  });
-
-  document.documentElement.appendChild(button);
-}
-
-if (isSupportedArxivPage(window.location.href)) {
-  createJumpButton(toAlphaXivUrl(window.location.href));
-}
+})();

@@ -1,10 +1,11 @@
 {
   "manifest_version": 3,
   "name": "alphaxlick",
-  "version": "1.0.0",
-  "description": "Detect arXiv abstract pages and jump to the corresponding AlphaXiv page.",
+  "version": "1.3.0",
+  "description": "Jump between arXiv and AlphaXiv with one click, with draggable buttons whose position is remembered.",
   "action": {
-    "default_title": "Open the same paper on AlphaXiv",
+    "default_title": "Alphaxlick",
+    "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
@@ -20,12 +21,14 @@
     "service_worker": "background.js"
   },
   "permissions": [
-    "tabs"
+    "tabs",
+    "storage"
   ],
   "host_permissions": [
     "http://arxiv.org/*",
     "https://arxiv.org/*",
-    "https://alphaxiv.org/*"
+    "https://alphaxiv.org/*",
+    "https://www.alphaxiv.org/*"
   ],
   "content_scripts": [
     {
@@ -34,7 +37,19 @@
         "https://arxiv.org/*"
       ],
       "js": [
+        "common.js",
         "content.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://alphaxiv.org/*",
+        "https://www.alphaxiv.org/*"
+      ],
+      "js": [
+        "common.js",
+        "content-alphaxiv.js"
       ],
       "run_at": "document_idle"
     }
